@@ -131,13 +131,75 @@ class HeartbeatThrottleTest(unittest.TestCase):
 
     def test_no_key_returns_false(self):
         self.plugin._warned_no_key = True  # silence logging
-        old = os.environ.get("HERMES_WAKATIME_API_KEY")
+        old_key = os.environ.get("HERMES_WAKATIME_API_KEY")
+        old_cfg = os.environ.get("HERMES_WAKATIME_CFG")
         os.environ.pop("HERMES_WAKATIME_API_KEY", None)
+        os.environ.pop("WAKATIME_API_KEY", None)
+        # Isolate from the real ~/.wakatime.cfg (which may hold a live key).
+        os.environ["HERMES_WAKATIME_CFG"] = "/nonexistent/nope.cfg"
+        self.plugin._cfg_cache["key"] = None
         try:
             self.assertFalse(self.plugin._emit("x.py", project="p"))
         finally:
-            if old is not None:
-                os.environ["HERMES_WAKATIME_API_KEY"] = old
+            if old_key is not None:
+                os.environ["HERMES_WAKATIME_API_KEY"] = old_key
+            if old_cfg is None:
+                os.environ.pop("HERMES_WAKATIME_CFG", None)
+            else:
+                os.environ["HERMES_WAKATIME_CFG"] = old_cfg
+            self.plugin._cfg_cache["key"] = None
+
+
+class ConfigFileTest(unittest.TestCase):
+    """Key/URL resolution from the standard ~/.wakatime.cfg file."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.plugin = load_plugin()
+
+    def setUp(self):
+        self._old = {
+            name: os.environ.get(name)
+            for name in ("HERMES_WAKATIME_CFG", "HERMES_WAKATIME_API_KEY",
+                         "WAKATIME_API_KEY", "HERMES_WAKATIME_API_URL", "WAKATIME_API_URL")
+        }
+        for name in self._old:
+            os.environ.pop(name, None)
+
+    def tearDown(self):
+        for name, old in self._old.items():
+            if old is None:
+                os.environ.pop(name, None)
+            else:
+                os.environ[name] = old
+        self.plugin._cfg_cache["key"] = None  # invalidate mtime cache
+
+    def _write_cfg(self, text):
+        fd, path = tempfile.mkstemp(suffix=".cfg")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.environ["HERMES_WAKATIME_CFG"] = path
+        self.addCleanup(os.unlink, path)
+
+    def test_key_from_cfg(self):
+        self._write_cfg("[settings]\napi_key = cfg-key-123\n")
+        self.assertEqual(self.plugin._api_key(), "cfg-key-123")
+
+    def test_env_precedence_over_cfg(self):
+        self._write_cfg("[settings]\napi_key = cfg-key-123\n")
+        os.environ["WAKATIME_API_KEY"] = "env-key-456"
+        self.assertEqual(self.plugin._api_key(), "env-key-456")
+        os.environ["HERMES_WAKATIME_API_KEY"] = "hermes-key-789"
+        self.assertEqual(self.plugin._api_key(), "hermes-key-789")
+
+    def test_api_url_from_cfg(self):
+        self._write_cfg("[settings]\napi_url = https://wakapi.example.com/api/heartbeat\n")
+        self.assertEqual(self.plugin._api_url(), "https://wakapi.example.com/api/heartbeat")
+
+    def test_missing_cfg_returns_empty(self):
+        os.environ["HERMES_WAKATIME_CFG"] = "/nonexistent/nope.cfg"
+        self.assertEqual(self.plugin._api_key(), "")
+        self.assertEqual(self.plugin._api_url(), self.plugin._DEFAULT_API_URL)
 
 
 if __name__ == "__main__":

@@ -42,21 +42,35 @@ Plugins take effect on the **next session** (restart the app or start a new `her
 
 ## Configuration
 
-Set these in `~/.hermes/.env` (recommended) or export them in your shell:
+The plugin follows standard WakaTime conventions — in most cases **no
+configuration is needed**: if you already use WakaTime in any editor, your API
+key is in `~/.wakatime.cfg` and this plugin picks it up automatically.
 
-| Variable | Required | Default | Purpose |
-|---|---|---|---|
-| `WAKATIME_API_KEY` | yes* | — | WakaTime API key (same variable all official WakaTime plugins use). *Or use the namespaced alternative below. |
-| `HERMES_WAKATIME_API_KEY` | no | — | Namespaced alternative API key; **takes precedence** over `WAKATIME_API_KEY`. |
-| `HERMES_WAKATIME_API_URL` | no | `https://api.wakatime.com/api/v1/users/current/heartbeats` | Server override for self-hosted wakapi / Hackatime. |
-| `HERMES_WAKATIME_PROJECT` | no | auto-detected | Force a fixed project name for all heartbeats. |
-| `HERMES_WAKATIME_DEBUG` | no | off | Set to `true` for verbose per-send logging. |
+**API key resolution** (first match wins):
 
-Example `~/.hermes/.env`:
+1. `HERMES_WAKATIME_API_KEY` env var
+2. `WAKATIME_API_KEY` env var
+3. `[settings] api_key` in `~/.wakatime.cfg` (default source)
 
-```bash
-WAKATIME_API_KEY=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```ini
+# ~/.wakatime.cfg  (standard WakaTime config — created by any WakaTime plugin)
+[settings]
+api_key = your-api-key-here
 ```
+
+**Server URL resolution** (for self-hosted wakapi / Hackatime):
+
+1. `HERMES_WAKATIME_API_URL` env var
+2. `WAKATIME_API_URL` env var
+3. `[settings] api_url` in `~/.wakatime.cfg`
+
+| Variable | Purpose |
+|---|---|
+| `HERMES_WAKATIME_API_KEY` / `WAKATIME_API_KEY` | API key override (optional — `~/.wakatime.cfg` is the default source) |
+| `HERMES_WAKATIME_API_URL` / `WAKATIME_API_URL` | Server override for self-hosted wakapi/Hackatime |
+| `HERMES_WAKATIME_CFG` | Path to a custom WakaTime config file (default `~/.wakatime.cfg`; also honors `WAKATIME_HOME`) |
+| `HERMES_WAKATIME_PROJECT` | Force a fixed project name for all heartbeats |
+| `HERMES_WAKATIME_DEBUG` | Set to `true` for verbose per-send logging |
 
 ## How it works
 

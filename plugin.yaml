@@ -1,10 +1,8 @@
 name: wakatime
-version: "1.0.0"
+version: "1.1.0"
 kind: standalone
-description: "WakaTime heartbeats for Hermes Agent — tracks coding time, projects, languages, and files on wakatime.com or any WakaTime-compatible server (wakapi, Hackatime). Opt-in via `hermes plugins enable wakatime`."
+description: "WakaTime heartbeats for Hermes Agent — reads your key from ~/.wakatime.cfg (standard WakaTime config) or env vars, tracks coding time, projects, languages, and files on wakatime.com or any WakaTime-compatible server (wakapi, Hackatime). Opt-in via `hermes plugins enable wakatime`."
 author: Jinzc06
-requires_env:
-  - WAKATIME_API_KEY
 provides_hooks:
   - on_session_start
   - post_tool_call

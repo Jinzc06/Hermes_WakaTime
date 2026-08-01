@@ -10,16 +10,22 @@ wakatime``. At runtime the plugin requires a WakaTime API key; without one the
 hooks are inert (fail-open, like the bundled langfuse plugin) and a one-time
 warning is logged.
 
-Required env vars (set via ~/.hermes/.env or your shell):
-  HERMES_WAKATIME_API_KEY  - namespaced API key (takes precedence)
-  WAKATIME_API_KEY         - standard WakaTime API key, shared with all other
-                             WakaTime plugins (wakatime.com/settings/api-key)
+API key resolution (first match wins):
+  1. HERMES_WAKATIME_API_KEY env var
+  2. WAKATIME_API_KEY env var (standard, shared with all WakaTime plugins)
+  3. [settings] api_key in ~/.wakatime.cfg — the standard WakaTime config
+     file created by every official WakaTime plugin/CLI (usually already
+     present, so no configuration is needed)
+
+Server URL resolution (first match wins):
+  1. HERMES_WAKATIME_API_URL env var
+  2. WAKATIME_API_URL env var
+  3. [settings] api_url in ~/.wakatime.cfg (self-hosted wakapi/Hackatime)
 
 Optional env vars:
-  HERMES_WAKATIME_API_URL  - server override for self-hosted wakapi/Hackatime
-                             (default: https://api.wakatime.com/api/v1/users/current/heartbeats)
-  HERMES_WAKATIME_PROJECT  - force a project name (default: auto-detected from
-                             the nearest git root / working directory)
+  HERMES_WAKATIME_CFG      - path to a custom WakaTime config file
+                             (default: ~/.wakatime.cfg; also honors WAKATIME_HOME)
+  HERMES_WAKATIME_PROJECT  - force a project name (default: auto-detected)
   HERMES_WAKATIME_DEBUG    - "true" for verbose logging
 
 Design notes
@@ -38,6 +44,7 @@ Design notes
 from __future__ import annotations
 
 import base64
+import configparser
 import json
 import logging
 import os
@@ -56,7 +63,7 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-PLUGIN_VERSION = "1.0.0"
+PLUGIN_VERSION = "1.1.0"
 _USER_AGENT = f"hermes-wakatime/{PLUGIN_VERSION}"
 _DEFAULT_API_URL = "https://api.wakatime.com/api/v1/users/current/heartbeats"
 _MIN_HEARTBEAT_INTERVAL = 60.0  # throttle: seconds between heartbeats per entity
@@ -139,12 +146,62 @@ def _debug(message: str, *args: Any) -> None:
         logger.info("wakatime: " + message, *args)
 
 
+def _cfg_path() -> str:
+    """Path to the WakaTime config file (standard: ~/.wakatime.cfg)."""
+    override = _env("HERMES_WAKATIME_CFG")
+    if override:
+        return os.path.expanduser(override)
+    home = _env("WAKATIME_HOME")
+    if home:
+        return os.path.join(os.path.expanduser(home), ".wakatime.cfg")
+    return os.path.join(os.path.expanduser("~"), ".wakatime.cfg")
+
+
+_cfg_cache: Dict[str, Any] = {"key": None, "settings": {}}
+
+
+def _read_cfg() -> Dict[str, str]:
+    """Parse ``[settings]`` from the WakaTime config file (mtime-cached).
+
+    configparser lowercases option names, so look up ``api_key`` / ``api_url``.
+    A missing or unparseable file yields {}.
+    """
+    path = _cfg_path()
+    try:
+        st = os.stat(path)
+        cache_key = (path, st.st_mtime_ns, st.st_size)
+    except OSError:
+        cache_key = (path, None, None)
+    if _cfg_cache["key"] == cache_key:
+        return _cfg_cache["settings"]
+    settings: Dict[str, str] = {}
+    if cache_key[1] is not None:
+        try:
+            parser = configparser.ConfigParser(interpolation=None)
+            parser.read(path, encoding="utf-8")
+            if parser.has_section("settings"):
+                settings = {k: v.strip() for k, v in parser.items("settings")}
+        except Exception as exc:
+            _debug("failed to parse %s: %s", path, exc)
+    _cfg_cache["key"] = cache_key
+    _cfg_cache["settings"] = settings
+    return settings
+
+
 def _api_key() -> str:
-    return _env("HERMES_WAKATIME_API_KEY") or _env("WAKATIME_API_KEY")
+    for name in ("HERMES_WAKATIME_API_KEY", "WAKATIME_API_KEY"):
+        value = _env(name)
+        if value:
+            return value
+    return _read_cfg().get("api_key", "")
 
 
 def _api_url() -> str:
-    return _env("HERMES_WAKATIME_API_URL") or _env("WAKATIME_API_URL") or _DEFAULT_API_URL
+    for name in ("HERMES_WAKATIME_API_URL", "WAKATIME_API_URL"):
+        value = _env(name)
+        if value:
+            return value
+    return _read_cfg().get("api_url") or _DEFAULT_API_URL
 
 
 def _warn_no_key() -> None:
@@ -154,9 +211,9 @@ def _warn_no_key() -> None:
         return
     _warned_no_key = True
     logger.warning(
-        "wakatime plugin: no API key found (HERMES_WAKATIME_API_KEY / "
-        "WAKATIME_API_KEY). Heartbeats are disabled until a key is configured "
-        "in ~/.hermes/.env or exported in the shell."
+        "wakatime plugin: no API key found. Set HERMES_WAKATIME_API_KEY / "
+        "WAKATIME_API_KEY, or add an api_key under [settings] in "
+        "~/.wakatime.cfg. Heartbeats are disabled until a key is configured."
     )
 
 
