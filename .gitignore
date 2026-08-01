@@ -1,2 +1,9 @@
 .DS_Store
 *.swp
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+tests/heartbeats.jsonl

@@ -19,17 +19,16 @@ Sends **heartbeats** from [Hermes Agent](https://github.com/NousResearch/hermes-
 
 ## Installation
 
-This plugin lives in the `wakatime/` subdirectory of the
-[`Hermes_WakaTime`](https://github.com/Jinzc06/Hermes_WakaTime) repository.
-Install it with the subdirectory syntax:
+The plugin lives at the repository root, so installation is a one-liner:
 
 ```bash
-# From GitHub:
-hermes plugins install Jinzc06/Hermes_WakaTime/wakatime
+hermes plugins install Jinzc06/Hermes_WakaTime
+```
 
-# Or manually: clone the repo and symlink/copy the wakatime/ subdirectory
-git clone https://github.com/Jinzc06/Hermes_WakaTime.git
-ln -s "$(pwd)/Hermes_WakaTime/wakatime" ~/.hermes/plugins/wakatime
+Or manually — clone the repo and symlink/copy it into your user plugins directory:
+
+```bash
+git clone https://github.com/Jinzc06/Hermes_WakaTime.git ~/.hermes/plugins/wakatime
 ```
 
 ## Enable
