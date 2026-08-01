@@ -17,25 +17,27 @@ Sends **heartbeats** from [Hermes Agent](https://github.com/NousResearch/hermes-
 - Hermes Agent (any recent version with the plugin system, `hermes plugins` CLI)
 - A WakaTime API key from <https://wakatime.com/settings/api-key>
 
-## Installation
+## Installation & enable
 
-The plugin lives at the repository root, so installation is a one-liner:
+The plugin lives at the repository root, so a fresh install is one command:
 
 ```bash
-hermes plugins install Jinzc06/Hermes_WakaTime
+hermes plugins install Jinzc06/Hermes_WakaTime --enable
+```
+
+(`--enable` skips the interactive "Enable now? [y/N]" prompt.)
+
+Verify it's active:
+
+```bash
+hermes plugins list --plain | grep wakatime   # should show "enabled"
 ```
 
 Or manually — clone the repo and symlink/copy it into your user plugins directory:
 
 ```bash
 git clone https://github.com/Jinzc06/Hermes_WakaTime.git ~/.hermes/plugins/wakatime
-```
-
-## Enable
-
-```bash
 hermes plugins enable wakatime
-hermes plugins list --plain | grep wakatime   # should show "enabled"
 ```
 
 Plugins take effect on the **next session** (restart the app or start a new `hermes` process).
